@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Weather Checker</title>
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+
+    <style>
+        body { font-family: Arial, sans-serif; margin: 50px; }
+        .container { max-width: 400px; margin: auto; }
+        .weather-box { margin-top: 20px; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>🌤️ Check Weather</h2>
+        <form method="post" action="/weather">
+            <label for="city">Select City:</label>
+            <select name="city" id="city" class="city-select" style="width: 300px;" required>
+                {% for c in cities %}
+                    <option value="{{ c }}" {% if selected_city == c %}selected{% endif %}>{{ c }}</option>
+                {% endfor %}
+            </select>
+            <br><br>
+            <button type="submit">Get Weather</button>
+        </form>
+
+        {% if weather %}
+            <div class="weather-box">
+                {% if weather.error %}
+                    <p style="color:red;">Error: {{ weather.error }}</p>
+                {% else %}
+                    <p><strong>City:</strong> {{ weather.city }}</p>
+                    <p><strong>Temperature:</strong> {{ weather.temperature }} °C</p>
+                    <p><strong>Description:</strong> {{ weather.description }}</p>
+                    <p><strong>Humidity:</strong> {{ weather.humidity }}%</p>
+                    <p><strong>Wind Speed:</strong> {{ weather.wind_speed }} m/s</p>
+                {% endif %}
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Include jQuery & Select2 -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script>
+    $(document).ready(function () {
+        $('.city-select').select2({
+            placeholder: "Search or select a city",
+            minimumInputLength: 3,
+            ajax: {
+                url: "http://localhost:8000/search", // or your deployed FastAPI URL
+                dataType: 'json',
+                delay: 300,
+                data: function (params) {
+                    return {
+                        q: params.term  // what user types is sent as query param
+                    };
+                },
+                processResults: function (data) {
+                    return {
+                        results: data.results.map(function (city) {
+                            return {
+                                id: city,
+                                text: city
+                            };
+                        })
+                    };
+                },
+                cache: true
+            }
+        });
+    });
+</script>
+
+</body>
+</html>
