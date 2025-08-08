@@ -15,17 +15,10 @@ BASE_URL = "https://api.openweathermap.org/data/2.5/weather"
 
 templates = Jinja2Templates(directory="templates")
 
-with open("city.list.json", encoding="utf-8") as f:
-    cities_data = json.load(f)
-# Serve root HTML
-# @app.get("/", response_class=HTMLResponse)
-# async def get_form(request: Request):
-
-# Extract only the names
-    # cities = [city["name"] for city in cities_data]
-    # cities = ["Delhi", "Mumbai", "Chennai", "Bengaluru", "Hyderabad", "Kolkata"]
-    # return templates.TemplateResponse("index.html", {"request": request, "cities": cities})
-
+def load_cities():
+    with open("city.list.json", encoding="utf-8") as f:
+        for city in json.load(f):
+            yield city["name"]
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
@@ -65,8 +58,10 @@ async def fetch_weather(request: Request):
 
 @app.get("/search")
 def search_cities(q: str = Query(..., min_length=3)):
-    matches = [
-        city["name"] for city in cities_data
-        if city["name"].lower().startswith(q.lower())
-    ]
-    return {"results": matches[:100]}
+    matches = []
+    for name in load_cities():
+        if name.lower().startswith(q.lower()):
+            matches.append(name)
+            if len(matches) >= 100:  # limit results
+                break
+    return {"results": matches}
