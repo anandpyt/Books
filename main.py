@@ -1,28 +1,30 @@
-from fastapi import FastAPI, Request,Query
+import json
+from fastapi import FastAPI, Request, Query
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
-from fastapi.staticfiles import StaticFiles
-import os, requests
-from dotenv import load_dotenv
-import json
-from fastapi.middleware.cors import CORSMiddleware
+import requests
 
-load_dotenv()
 app = FastAPI()
-
-API_KEY = os.getenv("OPENWEATHER_API_KEY")
-BASE_URL = "https://api.openweathermap.org/data/2.5/weather"
-
 templates = Jinja2Templates(directory="templates")
 
-def load_cities():
-    with open("city.list.json", encoding="utf-8") as f:
-        for city in json.load(f):
-            yield city["name"]
+API_KEY = "YOUR_API_KEY"
+BASE_URL = "https://api.openweathermap.org/data/2.5/weather"
+
+# ✅ Cache only city names (small memory footprint)
+cities_cache = None
+
+def get_cities():
+    global cities_cache
+    if cities_cache is None:  # load once
+        with open("city.list.json", encoding="utf-8") as f:
+            data = json.load(f)
+            cities_cache = [c["name"] for c in data]
+    return cities_cache
+
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
-# Handle form POST
+
 @app.post("/weather", response_class=HTMLResponse)
 async def fetch_weather(request: Request):
     form = await request.form()
@@ -58,10 +60,8 @@ async def fetch_weather(request: Request):
 
 @app.get("/search")
 def search_cities(q: str = Query(..., min_length=3)):
-    matches = []
-    for name in load_cities():
-        if name.lower().startswith(q.lower()):
-            matches.append(name)
-            if len(matches) >= 100:  # limit results
-                break
-    return {"results": matches}
+    matches = [
+        name for name in get_cities()
+        if name.lower().startswith(q.lower())
+    ]
+    return {"results": matches[:100]}
