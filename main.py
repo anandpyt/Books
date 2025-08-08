@@ -1,25 +1,25 @@
-import json
 from fastapi import FastAPI, Request, Query
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
-import requests
+from fastapi.staticfiles import StaticFiles
+import os, requests, json, gzip
+from dotenv import load_dotenv
+from fastapi.middleware.cors import CORSMiddleware
 
+load_dotenv()
 app = FastAPI()
-templates = Jinja2Templates(directory="templates")
 
-API_KEY = "YOUR_API_KEY"
+API_KEY = os.getenv("OPENWEATHER_API_KEY")
 BASE_URL = "https://api.openweathermap.org/data/2.5/weather"
 
-# ✅ Cache only city names (small memory footprint)
-cities_cache = None
+templates = Jinja2Templates(directory="templates")
 
-def get_cities():
-    global cities_cache
-    if cities_cache is None:  # load once
-        with open("city.list.json", encoding="utf-8") as f:
-            data = json.load(f)
-            cities_cache = [c["name"] for c in data]
-    return cities_cache
+# ✅ Load compressed city data only once
+def load_cities_data():
+    with gzip.open("citynames.json.gz", "rt", encoding="utf-8") as f:
+        return json.load(f)
+
+cities_data = load_cities_data()  # this now loads from .gz file
 
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request):
@@ -58,10 +58,25 @@ async def fetch_weather(request: Request):
         "weather": weather
     })
 
+# @app.get("/search")
+# def search_cities(q: str = Query(..., min_length=3)):
+#     matches = [
+#         city["name"] for city in cities_data
+#         if city["name"].lower().startswith(q.lower())
+#     ]
+#     return {"results": matches[:100]}
 @app.get("/search")
 def search_cities(q: str = Query(..., min_length=3)):
-    matches = [
-        name for name in get_cities()
-        if name.lower().startswith(q.lower())
-    ]
+    if isinstance(cities_data[0], dict):
+        # full object JSON
+        matches = [
+            city["name"] for city in cities_data
+            if city["name"].lower().startswith(q.lower())
+        ]
+    else:
+        # already just a list of names
+        matches = [
+            name for name in cities_data
+            if name.lower().startswith(q.lower())
+        ]
     return {"results": matches[:100]}
